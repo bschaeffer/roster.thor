@@ -42,6 +42,7 @@ class Roster < Thor
   # Rank
   #
   desc 'rank [SORT]', 'display team ranks based on youth'
+  method_option :quiet  => false
   def rank(sort='average')
     if ! File.exists?(DATA_FILE)
       tell "Loading rosters from http://espn.go.com (this could take a while)..."
