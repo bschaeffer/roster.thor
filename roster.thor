@@ -26,15 +26,10 @@ class Roster < Thor
   desc 'download', 'download roster information and save it to a rosters.yml file'
   method_option :quiet  => false
   def download(file='')
-    tell "Loading team information..."
-
-    rosters = []
-
-    load_teams.each do |team|
-      tell("Loading roster for #{team[:name]}...")
-      rosters.push load_roster(team)
-    end
-
+    tell "Downloading team/roster information..."
+    rosters = load_rosters(load_teams)
+    
+    tell "Saving file...."
     File.open(DATA_FILE, 'w') { |f|  f.write rosters.to_yaml }
   end
 
@@ -45,7 +40,6 @@ class Roster < Thor
   method_option :quiet  => false
   def rank(sort='average')
     if ! File.exists?(DATA_FILE)
-      tell "Loading rosters from http://espn.go.com (this could take a while)..."
       rosters = load_rosters(load_teams)
 
       if yes?("Would you like us to save the roster data to a file?")
@@ -85,12 +79,19 @@ class Roster < Thor
 
   private
 
-    def tell(msg)
-      $stderr.puts msg unless options.quiet?
+    def tell(msg, overwrite=false)
+      return if options.quiet?
+      if overwrite
+        print msg + " " * 20 + "\r"
+        $stdout.flush
+      else
+        $stdout.puts msg
+      end
     end
 
     # Load team names and ids
     def load_teams
+      tell "Loading teams..." unless options.quiet?
       teams = []
 
       doc = Nokogiri::HTML(open(TEAMS_URL))
@@ -109,19 +110,21 @@ class Roster < Thor
 
     def load_rosters(teams)
       rosters = []
-      teams.each { |team| rosters.push load_roster(team) }
+      teams.each do |team|
+        tell "Loading roster for #{team[:name]}...", true
+        rosters.push load_roster(team)
+      end
+      tell "All rosters loaded!" + " " * 20
       rosters
     end
 
     def load_roster(team)
       info = TEAM_HASH_DEFAULT.dup.merge(:name => team[:name])
-
       team_page = Nokogiri::HTML(open(sprintf(ROSTER_URL, team[:id])))
       team_page.css('td.sortcell').each do |td|
         year = td.content.upcase.to_sym
         info[year] += 1
       end
-
       info
     end
 end
