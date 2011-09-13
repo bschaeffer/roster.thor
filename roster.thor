@@ -69,7 +69,8 @@ class Roster < Thor
     
     sortable = [:name, :eligibility, :average]
     unless sortable.include?(sort.to_sym)
-      raise "Invalid sort key. Must be one of #{sortable.join(', ')}"
+      puts "Invalid sort key. Must be one of: #{sortable.join(', ')}"
+      return
     end
     
     info.sort_by! { |t| t[sort.to_sym] }
