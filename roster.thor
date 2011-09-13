@@ -32,7 +32,7 @@ class Roster < Thor
 
     load_teams.each do |team|
       tell("Loading roster for #{team[:name]}...")
-      rosters.push load_roster(team[:id], team[:name])
+      rosters.push load_roster(team)
     end
 
     File.open(DATA_FILE, 'w') { |f|  f.write rosters.to_yaml }
@@ -98,10 +98,9 @@ class Roster < Thor
       
       list.each do |t|
         a_tag = t.search('h5 > a').first
-        teams.push({
-          :id   => a_tag['href'].match(/_\/id\/([\d]+)\/.+\Z/)[1],
-          :name => a_tag.content
-        })
+        id = a_tag['href'].match(/_\/id\/([\d]+)\/.+\Z/)[1]
+        name = a_tag.content
+        teams.push({:id => id, :name => name})
       end
 
       teams.sort_by { |team|  team[:name] }
@@ -109,16 +108,14 @@ class Roster < Thor
 
     def load_rosters(teams)
       rosters = []
-      teams.each do |team|
-        rosters.push load_roster(team[:id], team[:name])
-      end
+      teams.each { |team| rosters.push load_roster(team) }
       rosters
     end
 
-    def load_roster(id, name)
-      info = TEAM_HASH_DEFAULT.dup.merge(:name => name)
+    def load_roster(team)
+      info = TEAM_HASH_DEFAULT.dup.merge(:name => team[:name])
 
-      team_page = Nokogiri::HTML(open(sprintf(ROSTER_URL, id)))
+      team_page = Nokogiri::HTML(open(sprintf(ROSTER_URL, team[:id])))
       team_page.css('td.sortcell').each do |td|
         year = td.content.upcase.to_sym
         info[year] += 1
