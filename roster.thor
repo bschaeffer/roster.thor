@@ -18,7 +18,16 @@ class Roster < Thor
 
   DATA_FILE = File.join(Dir.pwd, 'rosters.yml')
 
-  TEAM_HASH_DEFAULT = {:name => '', :FR => 0, :SO => 0, :JR => 0, :SR => 0}
+  TEAM_HASH_DEFAULT = {
+    :name => '',
+    :FR => 0,
+    :SO => 0,
+    :JR => 0,
+    :SR => 0,
+    :eligibility => 0,
+    :total => 0,
+    :average => 0.00
+  }
 
   #
   # Download
@@ -49,29 +58,16 @@ class Roster < Thor
       rosters = YAML::load(File.open(DATA_FILE))
     end
 
-    info = []
-    rosters.each do |r|
-
-      eligibility = ((r[:FR] * 4) + (r[:SO] * 3) + (r[:JR] * 2) + r[:SR]).to_f
-      total       = (r[:FR] + r[:SO] + r[:JR] + r[:SR]).to_f
-
-      info.push({
-        :name         => r[:name],
-        :eligibility  => eligibility,
-        :average      => (eligibility / total).round(2)
-      })
-    end
-
     sortable = [:name, :eligibility, :average]
     unless sortable.include?(sort.to_sym)
       puts "Invalid sort key. Must be one of: #{sortable.join(', ')}"
       return
     end
 
-    info.sort_by! { |t| t[sort.to_sym] }
-    info.reverse!
+    rosters.sort_by! { |t| t[sort.to_sym] }
+    rosters.reverse!
 
-    puts Hirb::Helpers::AutoTable.render(info, 
+    puts Hirb::Helpers::AutoTable.render(rosters,
       :number => true, 
       :fields => [:name, :eligibility, :average]
     )
@@ -110,21 +106,31 @@ class Roster < Thor
 
     def load_rosters(teams)
       rosters = []
+      count = 0
       teams.each do |team|
-        tell "Loading roster for #{team[:name]}...", true
+        count += 1
+        tell "Loading roster (#{count} of #{teams.length}) for #{team[:name]}...", true
         rosters.push load_roster(team)
       end
-      tell "All rosters loaded!" + " " * 20
+      tell "#{rosters.length} rosters loaded!" + " " * 20
       rosters
     end
 
     def load_roster(team)
-      info = TEAM_HASH_DEFAULT.dup.merge(:name => team[:name])
+      r = TEAM_HASH_DEFAULT.dup.merge(:name => team[:name])
       team_page = Nokogiri::HTML(open(sprintf(ROSTER_URL, team[:id])))
       team_page.css('td.sortcell').each do |td|
         year = td.content.upcase.to_sym
-        info[year] += 1
+        r[year] += 1
       end
-      info
+
+      eligibility = (r[:FR] * 4) + (r[:SO] * 3) + (r[:JR] * 2) + r[:SR]
+      total       = r[:FR] + r[:SO] + r[:JR] + r[:SR]
+
+      r.merge({
+        :eligibility => eligibility,
+        :total => total,
+        :average => ((eligibility.to_f / total.to_f) * 10**2).round.to_f / (10**2)
+      })
     end
 end
